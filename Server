@@ -1,0 +1,73 @@
+package main;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.net.Socket;
+import java.util.Scanner;
+import java.io.File;
+import java.io.FileInputStream;
+import java.net.ServerSocket;
+
+class Server{
+        public static void main(String args[])throws Exception
+    {
+        String filename;
+    System.out.println("Enter a File Name: ");
+    Scanner sc=new Scanner(System.in);
+    filename=sc.nextLine();
+    sc.close();
+while(true){
+//create server socket on port 5000
+        ServerSocket s=new ServerSocket(5000);
+            System.out.println ("Waiting for request");
+        Socket socket=s.accept();
+            System.out.println ("Connected"+s.getInetAddress().toString());
+        DataInputStream dinstr=new
+        DataInputStream(socket.getInputStream());
+        DataOutputStream dout=new
+        DataOutputStream(socket.getOutputStream());
+try{
+    String str="";
+        str=din.readUTF();
+        System.out.println("Send");
+if(!str.equals("stop")){
+        System.out.println("Sending File: "+filename);
+            dout.writeUTF(filename);
+            dout.flush();
+
+    File file=new File(filename);
+    FileInputStream finstr=new FileInputStream(f);
+    long size=(int) file.length();
+    byte bte[]=new byte [1024];
+
+int read;
+
+dout.writeUTF(Long.toString(size));
+dout.flush();
+System.out.println ("Size: "+size);
+System.out.println ("Buf size:"+ss.getReceiveBufferSize());
+while((read = fin.read(bte)) != -1){
+    dout.write(bte, 0, read);
+    dout.flush();
+}
+
+fin.close();
+System.out.println("pass");
+dout.flush();
+}
+
+dout.writeUTF("stop");
+System.out.println("Sending Complete");
+dout.flush();
+}
+    catch(Exception exc){
+        exc.printStackTrace();
+        System.out.println("Error");
+}
+
+dinstr.close();
+socket.close();
+s.close();
+}
+}
+}
