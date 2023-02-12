@@ -4,91 +4,97 @@ import java.sql.*;
 
 public class AltServer
 {
-    //initialize socket and input stream
+    //initialize server, socket, input stream, and output stream
     private Socket          socket   = null;
     private ServerSocket    server   = null;
     private DataInputStream in       = null;
     private DataOutputStream out     = null;
 
-    // constructor with port
     public AltServer(int port) {
         // starts server and waits for a connection
         try {
             server = new ServerSocket(port);
             System.out.println("Server started");
-
             System.out.println("Waiting for a client ...");
 
-                while (!server.isClosed()) {
+            while (!server.isClosed()) {
+                //Listens for client
+                socket = server.accept();
+                System.out.println("Client accepted\n");
 
+                // takes input from the client socket
+                in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
 
-                    socket = server.accept();
-                    System.out.println("Client accepted");
+                // sends output from server to client socket
+                out = new DataOutputStream(socket.getOutputStream());
 
-                    // takes input from the client socket
-                    in = new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+                String line = "";
 
-                    // sends output from server to client socket
-                    out = new DataOutputStream(socket.getOutputStream());
+                // reads message from client until socket is closed
+                while (!socket.isClosed()) {
 
-                    String line = "";
+                    try {
+                        line = in.readUTF();
+                        System.out.println("Received: " + line);
+                        //Takes input from client and tokenizes it for individual commands.
+                        String[] command = line.split("\\s");
 
-                    // reads message from client until "Over" is sent
-                    while (!socket.isClosed()) {
-                        try {
-                            line = in.readUTF();
-                            System.out.println("Received: " + line);
-
-                            String[] command = line.split("\\s");
-
-                            switch (command[0]) {
-                                case "BUY" -> {
-                                    out.writeUTF("200 OK");
-                                    System.out.println("BUYING");
-                                }
-                                case "SELL" -> {
-                                    out.writeUTF("200 OK");
-                                    System.out.println("SELLING");
-                                }
-                                case "LIST" -> {
-                                    out.writeUTF("200 OK");
-                                    printStock(out);
-                                }
-                                case "BALANCE" -> {
-                                    out.writeUTF("200 OK");
-                                    findBalance(out);
-                                }
-                                case "QUIT" -> {
-                                    out.writeUTF("200 OK");
-                                    System.out.println("QUITING");
-                                }
-                                case "SHUTDOWN" -> {
-                                    out.writeUTF("200 OK");
-                                    System.out.println("SHUTTING DOWN");
-                                    socket.close();
-                                    in.close();
-                                    out.close();
-                                    server.close();
-                                }
-                                default -> {
-                                    System.out.println("400 INVALID COMMAND");
-                                    out.writeUTF("400 INVALID COMMAND");
-                                }
+                        switch (command[0]) {
+                            case "BUY" -> {
+                                buyStock(out, command[1], Double.parseDouble(command[2]),
+                                        Double.parseDouble(command[3]), Integer.parseInt(command[4]));
                             }
+                            case "SELL" -> {
+                                sellStock(out, command[1], Double.parseDouble(command[2]),
+                                        Double.parseDouble(command[3]), Integer.parseInt(command[4]));
+                            }
+                            case "LIST" -> {
+                                //out.writeUTF("200 OK");
+                                printStock(out);
+                            }
+                            case "BALANCE" -> {
+                                out.write(2);
+                                out.writeUTF("200 OK");
+                                double d = findBalance();
+                                out.writeUTF("$" + d);
+                            }
+                            case "QUIT" -> {
+                                out.write(1);
+                                out.writeUTF("200 OK");
+                                System.out.println("CLIENT QUIT");
+                            }
+                            case "SHUTDOWN" -> {
+                                out.write(2);
+                                out.writeUTF("200 OK");
+                                out.writeUTF("SERVER SHUTTING DOWN");
+                                System.out.println("SHUTTING DOWN");
+                                socket.close();
+                                in.close();
+                                out.close();
+                                server.close();
+                            }
+                            default -> {
+                                System.out.println("INVALID COMMAND");
+                                out.write(2);
+                                out.writeUTF("400 ERROR");
+                                out.writeUTF("INVALID COMMAND");
 
-                        } catch (IOException i) {
-                            System.out.println(i);
-                            //System.out.println("Connection lost");
-                            socket.close();
-                            in.close();
+                            }
                         }
-                    }
-                    System.out.println("Closing connection");
 
-                    // close connection
-                    socket.close();
-                    in.close();
+                    } catch (IOException i) {
+                        System.out.println(i);
+                        //System.out.println("Connection lost");
+                        socket.close();
+                        in.close();
+                    }
                 }
+                System.out.println("Closing connection");
+
+                // close connection
+                socket.close();
+                in.close();
+            }
         }
         catch(IOException i)
         {
@@ -96,6 +102,7 @@ public class AltServer
         }
     }
 
+    //Connects to database, if no database exists, one is created
     public static void connect() {
         Connection c = null;
 
@@ -108,7 +115,7 @@ public class AltServer
         }
         System.out.println("Opened database successfully\n");
     }
-
+    //Checks table users, if one does not exist, it is created
     public static void userTable() {
         Connection c = null;
         Statement stmt = null;
@@ -137,7 +144,7 @@ public class AltServer
         }
         System.out.println("Users table created successfully\n");
     }
-
+    //Checks table stocks, if one does not exist, it is created
     public static void stockTable() {
         Connection c = null;
         Statement stmt = null;
@@ -151,7 +158,7 @@ public class AltServer
             String sql = "CREATE TABLE IF NOT EXISTS stocks " +
                     "(id int NOT_NULL AUTO_INCREMENT, " +
                     " stock_symbol varchar(4) NOT NULL, " +
-                    " stock_name varchar(20) NOT NULL, " +
+                    " stock_amount DOUBLE, " +
                     " stock_balance DOUBLE, " +
                     " user_id int, " +
                     " PRIMARY KEY (id), " +
@@ -165,7 +172,7 @@ public class AltServer
         }
         System.out.println("Stock table created successfully\n");
     }
-
+    //Prints a list of users and there key information, if there are none, a user is generated
     public static void printUsers() {
         Connection c = null;
         Statement stmt = null;
@@ -216,37 +223,47 @@ public class AltServer
         }
         System.out.println("Operation done successfully\n");
     }
-
+    //Prints a list of all stocks in the database
     public void printStock(DataOutputStream o) {
         Connection c = null;
         Statement stmt = null;
+        int count = 0;
 
         try {
             Class.forName("org.sqlite.JDBC");
             c = DriverManager.getConnection("jdbc:sqlite:stock.db");
             c.setAutoCommit(false);
             //System.out.println("Opened database successfully");
-
             stmt = c.createStatement();
             ResultSet empty = stmt.executeQuery( "SELECT * FROM stocks;" );
 
             if (!empty.next()){
                 System.out.println("No stocks owned");
+                o.write(2);
+                o.writeUTF("200 OK");
                 o.writeUTF("No stocks owned");
                 o.flush();
             }
 
+            ResultSet total = stmt.executeQuery("SELECT * FROM stocks;");
+
+            while(total.next())
+                count++;
+
+            System.out.println("#"+count);
+
             ResultSet rs = stmt.executeQuery("SELECT * FROM stocks;");
+
+            o.write(count);
 
             while (rs.next()) {
                 int id = rs.getInt("id");
                 String  symbol = rs.getString("stock_symbol");
-                String  name = rs.getString("stock_name");
+                double  name = rs.getDouble("stock_amount");
                 double  balance = rs.getDouble("stock_balance");
                 int  user_id = rs.getInt("user_id");
 
-                o.writeUTF( id + " " + symbol + " " + name + balance + user_id);
-                o.flush();
+                o.writeUTF( id + " " + symbol + " " + name + " " + balance + " " + user_id);
 
                 System.out.println( "ID = " + id );
                 System.out.println( "Stock Symbol = " + symbol );
@@ -264,16 +281,16 @@ public class AltServer
         }
         System.out.println("Operation done successfully\n");
     }
-
-    public void findBalance(DataOutputStream o) {
+    //Finds the balance of a user
+    public double findBalance() {
         Connection c = null;
         Statement stmt = null;
-
+        double usd = 0;
         try {
             Class.forName("org.sqlite.JDBC");
             c = DriverManager.getConnection("jdbc:sqlite:stock.db");
             c.setAutoCommit(false);
-            //System.out.println("Opened database successfully");
+            System.out.println("Finding Balance");
 
             stmt = c.createStatement();
             ResultSet empty = stmt.executeQuery( "SELECT * FROM users;" );
@@ -281,13 +298,7 @@ public class AltServer
             ResultSet rs = stmt.executeQuery("SELECT * FROM users;");
 
             while (rs.next()) {
-                double usd  = rs.getInt("usd_balance");
-
-                o.writeUTF("$" + usd);
-                o.flush();
-
-                System.out.println( "BALANCE = " + usd );
-                System.out.println();
+                usd  = rs.getInt("usd_balance");
             }
             rs.close();
             stmt.close();
@@ -296,7 +307,95 @@ public class AltServer
             System.err.println( e.getClass().getName() + ": " + e.getMessage() );
             System.exit(0);
         }
-        System.out.println("Operation done successfully\n");
+        //System.out.println("Operation done successfully\n");
+        return usd;
+    }
+    //Adds a stock to the database
+    public void buyStock(DataOutputStream o, String symbol, double amount, double price, int id) throws IOException {
+        Connection c = null;
+        PreparedStatement stmt = null;
+        double balance = findBalance();
+        double cost = amount * price;
+
+        if (cost <= balance) {
+            try {
+                Class.forName("org.sqlite.JDBC");
+                c = DriverManager.getConnection("jdbc:sqlite:stock.db");
+                c.setAutoCommit(false);
+                System.out.println("Preparing Buy Statement");
+
+                String sql = "INSERT INTO stocks (stock_symbol,stock_amount,stock_balance,user_id) " +
+                        "VALUES (?, ?, ?, ?);";
+                stmt = c.prepareStatement(sql);
+
+                stmt.setString(1, symbol);
+                stmt.setDouble(2, amount);
+                stmt.setDouble(3, price);
+                stmt.setInt(4, id);
+                stmt.executeUpdate();
+
+                String update = "UPDATE users set usd_balance = ? where ID = 1;";
+                stmt = c.prepareStatement(update);
+
+                stmt.setDouble(1, balance - cost);
+
+                stmt.executeUpdate();
+
+                stmt.close();
+                c.commit();
+                c.close();
+            } catch (Exception e) {
+                System.err.println(e.getClass().getName() + ": " + e.getMessage());
+                System.exit(0);
+            }
+            System.out.println("Buy Transaction Complete");
+            o.write(2);
+            o.writeUTF("200 OK");
+            o.writeUTF("BOUGHT: New balance: " + amount + " " + symbol + ". USD balance " + (balance - cost));
+        } else {
+            System.out.println("Not Enough Balance");
+            o.writeUTF("Note Enough Balance");
+        }
+    }
+    //Sells stock from
+    public void sellStock(DataOutputStream o, String symbol, double amount, double price, int id) throws IOException {
+        Connection c = null;
+        PreparedStatement stmt = null;
+        double balance = findBalance();
+        double cost = amount * price;
+
+        try {
+            Class.forName("org.sqlite.JDBC");
+            c = DriverManager.getConnection("jdbc:sqlite:stock.db");
+            c.setAutoCommit(false);
+            System.out.println("Preparing sell statement");
+
+            String sql = "UPDATE stocks SET stock_amount = ?, stock_balance = ? WHERE stock_symbol = ?";
+            stmt = c.prepareStatement(sql);
+
+            stmt.setDouble(1, amount);
+            stmt.setDouble(2, price);
+            stmt.setString(3, symbol);
+            stmt.executeUpdate();
+
+            String update = "UPDATE users set usd_balance = ? where ID = 1;";
+            stmt = c.prepareStatement(update);
+
+            stmt.setDouble(1, balance + cost);
+
+            stmt.executeUpdate();
+
+            stmt.close();
+            c.commit();
+            c.close();
+        } catch ( Exception e ) {
+            System.err.println( e.getClass().getName() + ": " + e.getMessage() );
+            System.exit(0);
+        }
+        System.out.println("Sell Transaction Complete");
+        o.write(2);
+        o.writeUTF("200 OK");
+        o.writeUTF("SOLD: New balance: " + amount + " " + symbol + ". USD balance " + (balance + cost));
     }
 
     public static void main(String[] args)

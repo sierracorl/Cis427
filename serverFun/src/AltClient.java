@@ -10,41 +10,41 @@ public class AltClient {
 
     // constructor to put ip address and port
     public AltClient(String address, int port) {
-        // establish a connection
+        // Establish connection
         try {
             socket = new Socket(address, port);
             System.out.println("Connected");
-
-            // takes input from terminal
+            //Takes input from server
             input = new DataInputStream(socket.getInputStream());
-
-            // sends output to the socket
+            //Sends output to the socket
             out = new DataOutputStream(socket.getOutputStream());
-
-            //
+            //Takes client input
             br = new BufferedReader(new InputStreamReader(System.in));
-        }
-        catch (UnknownHostException u) {
+        } catch (IOException u) {
             System.out.println(u);
             return;
         }
-        catch (IOException i) {
-            System.out.println(i);
-            return;
-        }
 
-        // string to read message from input
+        //String to read message from input
         String line = "";
-        String serverCode = "";
-        String dbOutput = "";
+        //int to hold number of messages server will send
+        int numMessages = 0;
+        //String to receive response code
+        String serverOut = "";
 
-        // keep reading until "Over" is input
         while (!line.equals("QUIT")) {
             try {
                 line = br.readLine();
                 out.writeUTF(line);
-                serverCode = input.readUTF();
-                System.out.println("S: " + serverCode);
+
+
+                numMessages = input.read();
+                //System.out.println("#" + numMessages);
+
+                for (int i = 0; i < numMessages; i++) {
+                    serverOut = input.readUTF();
+                    System.out.println("S: " + serverOut);
+                }
 
                 if (line.equals("QUIT")) {
                     try {
@@ -57,18 +57,14 @@ public class AltClient {
                         System.out.println(i);
                     }
                 }
-
-                dbOutput = input.readUTF();
-                System.out.println("S: " + dbOutput);
             }
             catch (IOException i) {
                 System.out.println(i);
             }
         }
-
     }
 
-    public static void main(String args[])
+    public static void main(String[] args)
     {
         AltClient client = new AltClient("127.0.0.1", 3339);
     }
