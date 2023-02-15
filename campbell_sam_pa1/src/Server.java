@@ -92,7 +92,6 @@ public class Server
                                 out.write(2);
                                 out.writeUTF("400 ERROR");
                                 out.writeUTF("INVALID COMMAND");
-
                             }
                         }
                     } catch (IOException i) {
@@ -238,6 +237,7 @@ public class Server
             System.exit(0);
         }
         System.out.println("Operation done successfully\n");
+
     }
 
     //Prints a list of all stocks in the database
@@ -376,6 +376,7 @@ public class Server
                         stmt.close();
                         c.commit();
                         c.close();
+
                         System.out.println("Bought existing Stock");
                         o.write(2);
                         o.writeUTF("200 OK");
@@ -406,6 +407,7 @@ public class Server
                 stmt.close();
                 c.commit();
                 c.close();
+
             } catch (Exception e) {
                 System.err.println(e.getClass().getName() + ": " + e.getMessage());
                 System.exit(0);
@@ -416,6 +418,8 @@ public class Server
             o.writeUTF("BOUGHT: New balance: " + amount + " " + symbol + ". USD balance " + (balance - cost));
         } else {
             System.out.println("Not Enough Balance");
+            o.write(2);
+            o.writeUTF("400 ERROR");
             o.writeUTF("Note Enough Balance");
         }
     }
@@ -456,6 +460,7 @@ public class Server
                 if (sS.equals(symbol)) {
                     System.out.println("Found Match");
                     if (sA > amount) {
+
                         System.out.println("Less than owned amount");
                         String sql = "UPDATE stocks SET stock_amount = ?, stock_balance = ? WHERE stock_symbol = ?";
                         stmt = c.prepareStatement(sql);
@@ -509,7 +514,9 @@ public class Server
                 } else
                     numStocks++;
             }
+
             rs.close();
+            c.close();
 
             if (numStocks == count) {
                 System.out.println("No match");
@@ -524,6 +531,7 @@ public class Server
             System.exit(0);
         }
     }
+
     //main
     public static void main(String[] args)
     {
